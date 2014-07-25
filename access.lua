@@ -20,6 +20,10 @@ local cb_server_name = ngx.var.ngo_callback_host or ngx.var.server_name
 local cb_uri = ngx.var.ngo_callback_uri or "/_oauth"
 local cb_url = cb_scheme.."://"..cb_server_name..cb_uri
 local debug = ngx.var.ngo_debug
+local whitelist = ngx.var.ngo_whitelist
+local blacklist = ngx.var.ngo_blacklist
+local secure_cookies = ngx.var.ngo_secure_cookies
+
 local uri_args = ngx.req.get_uri_args()
 
 -- See https://developers.google.com/accounts/docs/OAuth2WebServer 
@@ -65,6 +69,9 @@ if not ngx.var.cookie_AccessToken then
   local json  = cjson.decode( res )
   local access_token = json["access_token"]
   local cookie_tail = ";version=1;path=/;Max-Age="..json["expires_in"]
+  if secure_cookies then
+    cookie_tail = cookie_tail..";secure"
+  end
 
   local send_headers = {
     Authorization = "Bearer "..access_token,
@@ -87,17 +94,45 @@ if not ngx.var.cookie_AccessToken then
     ngx.log(ngx.ERR, "DEBUG: userinfo response "..res2..code2..status2..table.concat(result_table))
   end
 
-  -- TODO handle non-200
   json = cjson.decode( table.concat(result_table) )
-  if json["hd"]~=domain then
-    return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+
+  local name = json["name"]
+  local email = json["email"]
+  local picture = json["picture"]
+
+  -- If no whitelist or blacklist, match on domain
+  if not whitelist and not blacklist then
+    if not string.find(email, "@"..domain) then
+      if debug then
+        ngx.log(ngx.ERR, "DEBUG: "..email.." not in "..domain)
+      end
+      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+    end
+  end
+
+  if whitelist then
+    if not string.find(whitelist, email) then
+      if debug then
+        ngx.log(ngx.ERR, "DEBUG: "..email.." not in whitelist")
+      end
+      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+    end
+  end
+
+  if blacklist then
+    if string.find(blacklist, email) then
+      if debug then
+        ngx.log(ngx.ERR, "DEBUG: "..email.." in blacklist")
+      end
+      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+    end
   end
 
   ngx.header["Set-Cookie"] = {
     "AccessToken="..access_token..cookie_tail,
-    "Name="..ngx.escape_uri(json["name"])..cookie_tail,
-    "Email="..ngx.escape_uri(json["email"])..cookie_tail,
-    "Picture="..ngx.escape_uri(json["picture"])..cookie_tail
+    "Name="..ngx.escape_uri(name)..cookie_tail,
+    "Email="..ngx.escape_uri(email)..cookie_tail,
+    "Picture="..ngx.escape_uri(picture)..cookie_tail
   }
 
   -- Redirect
