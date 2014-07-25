@@ -1,12 +1,37 @@
 nginx-google-oauth
 ==================
 
-Lua module to add Google OAuth to nginx
+Lua module to add Google OAuth to nginx.
 
 ## Installation
 
 You can copy `access.lua` to your nginx configurations, or clone the
-repository.
+repository. Your installation of nginx must already be built with Lua
+support, and you will need the ``cjson`` and ``luasec`` modules as well.
+
+### Ubuntu
+
+You will need to install the following packages.
+
+```
+lua5.1
+liblua5.1-0
+liblua5.1-0-dev
+liblua5.1-sec-dev
+```
+
+You will also need to download and build the following and link them
+with nginx
+
+```
+ngx_devel_kit
+lua-nginx-module
+lua-cjson-2.1.0
+```
+
+See ``/chef/source-lua.rb`` for a Chef recipe to install nginx and Lua
+with all of the requirements.
+
 
 ## Configuration
 
@@ -154,6 +179,7 @@ while you're iterating.
 - Add support for non-blocking sockets in obtaining an auth token
 - Support auth token refresh and timeouts
 - Continue support for Ubuntu but make imports work on other platforms as well
+- Replace cjson requirement with "standard" Lua json
 
 ## Copyright
 
@@ -166,4 +192,4 @@ MIT
 ## Thanks
 
 This project wouldn't have gone beyond the idea stage without the excellent
-example provided by [SeatGeek](http://chairnerd.seatgeek.com/oauth-support-for-nginx-with-lua/)
+example provided by [SeatGeek](http://chairnerd.seatgeek.com/oauth-support-for-nginx-with-lua/).
