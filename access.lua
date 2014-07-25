@@ -1,4 +1,3 @@
-ngx.log(ngx.ERR, "DEBUG URL "..ngx.var.uri)
  
 -- import requirements
 local cjson = require "cjson"
@@ -13,71 +12,95 @@ local https = require "ssl.https" -- /usr/share/lua/5.1/https.lua
 local ltn12  = require("ltn12")
  
 -- setup some app-level vars
-local app_id = ngx.var.ngo_app_id
-local app_secret = ngx.var.ngo_app_secret
-local code_callback = ngx.var.scheme.."://"..ngx.var.server_name.."/_code"
-local args = ngx.req.get_uri_args()
+local client_id = ngx.var.ngo_client_id
+local client_secret = ngx.var.ngo_client_secret
+local domain = ngx.var.ngo_domain
+local cb_scheme = ngx.var.ngo_callback_scheme or ngx.var.scheme
+local cb_server_name = ngx.var.ngo_callback_host or ngx.var.server_name
+local cb_uri = ngx.var.ngo_callback_uri or "/_oauth"
+local cb_url = cb_scheme.."://"..cb_server_name..cb_uri
+local debug = ngx.var.ngo_debug
+local uri_args = ngx.req.get_uri_args()
 
- 
-local access_token = ngx.var.cookie_AccessToken
-if access_token then
-    ngx.header["Set-Cookie"] = "AccessToken="..access_token.."; path=/;Max-Age=3000"
-end
+-- See https://developers.google.com/accounts/docs/OAuth2WebServer 
+if not ngx.var.cookie_AccessToken then
+  -- If no access token and this isn't the callback URI, redirect to oauth
+  if ngx.var.uri ~= cb_uri then
+    -- Redirect to the /oauth endpoint, request access to ALL scopes
+    return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..client_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(cb_url).."&state="..ngx.escape_uri(ngx.var.uri).."&login_hint="..ngx.escape_uri(domain))
+  end
 
-if ngx.var.uri=='/_code' then
+  -- Fetch teh authorization code from the parameters
+  local auth_code = uri_args["code"]
+  local auth_error = uri_args["error"]
+
+  if auth_error then
+    ngx.log(ngx.ERR, "received "..auth_error.." from https://accounts.google.com/o/oauth2/auth")
+    return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+  end
+    
+  if debug then
+    ngx.log(ngx.ERR, "DEBUG: fetching token for auth code "..auth_code)
+  end
+
+  -- TODO: Switch to NBIO sockets
   -- If I get around to working luasec, this says how to pass a function which
   -- can generate a socket, needed for NBIO using nginx cosocket
   -- http://lua-users.org/lists/lua-l/2009-02/msg00251.html
-
-  -- TODO handle when there's an "error" parameter and no code
-  local code = args["code"]
-  ngx.log(ngx.ERR, "DEBUG: CHECKING ACCESS CODE "..code..ngx.var.request_method)
-
   local res, code, headers, status = https.request(
     "https://accounts.google.com/o/oauth2/token",
-    "code="..ngx.escape_uri(code).."&client_id="..app_id.."&client_secret="..app_secret.."&redirect_uri="..ngx.escape_uri(code_callback).."&grant_type=authorization_code"
+    "code="..ngx.escape_uri(auth_code).."&client_id="..client_id.."&client_secret="..client_secret.."&redirect_uri="..ngx.escape_uri(cb_url).."&grant_type=authorization_code"
   )
 
-  ngx.log(ngx.ERR, "DEBUG: token response"..res..code..status..type(code))
-
-  -- TODO handle non-200
-  if code==200 then
-    local json  = cjson.decode( res )
-    local expires = json["expires_in"]
-    ngx.header["Set-Cookie"] = "AccessToken="..json["access_token"].."; path=/;Max-Age="..json["expires_in"]
-    local send_headers = {
-      Authorization = "Bearer "..json["access_token"],
-    }
- 
-    local result_table = {} 
-    local res2, code2, headers2, status2 = https.request({
-      url = "https://www.googleapis.com/oauth2/v2/userinfo",
-      method = "GET",
-      headers = send_headers,
-      sink = ltn12.sink.table(result_table),
-    })
-
-    -- TODO handle non-200
-    json = cjson.decode( table.concat(result_table) )
-    if json["hd"]~="agoragames.com" then
-      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
-    end
-
-    ngx.log(ngx.ERR, "DEBUG: profile response"..res2..code2..status2..table.concat(result_table))
-    -- TODO: preserve the max-age from above
-    -- TODO: needs to be escaped I think, might be why they're not showing up or are overwriting access token cookie
-    --ngx.header["Set-Cookie"] = "Name="..json["name"].."; path=/"
-    --ngx.header["Set-Cookie"] = "Email="..json["email"].."; path=/"
-    --ngx.header["Set-Cookie"] = "Picture="..json["picture"].."; path=/"
+  if debug then
+    ngx.log(ngx.ERR, "DEBUG: token response "..res..code..status)
   end
 
-  --return ngx.exit(ngx.HTTP_OK)
-  -- TODO: only if we get a valid token!
-  return ngx.redirect(args["state"]) 
-end
- 
--- first lets check for a code where we retrieve
-if not access_token or args.code then
-    -- Redirect to the /oauth endpoint, request access to ALL scopes
-    return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..app_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(code_callback).."&state="..ngx.escape_uri(ngx.var.uri).."&login_hint="..ngx.escape_uri("agoragames.com"))
+  if code~=200 then
+    ngx.log(ngx.ERR, "received "..code.." from https://accounts.google.com/o/oauth2/token")
+    return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+  end
+
+  -- use version 1 cookies so we don't have to encode. MSIE-old beware
+  local json  = cjson.decode( res )
+  local access_token = json["access_token"]
+  local cookie_tail = ";version=1;path=/;Max-Age="..json["expires_in"]
+
+  local send_headers = {
+    Authorization = "Bearer "..access_token,
+  }
+
+  local result_table = {} 
+  local res2, code2, headers2, status2 = https.request({
+    url = "https://www.googleapis.com/oauth2/v2/userinfo",
+    method = "GET",
+    headers = send_headers,
+    sink = ltn12.sink.table(result_table),
+  })
+
+  if code2~=200 then
+    ngx.log(ngx.ERR, "received "..code2.." from https://www.googleapis.com/oauth2/v2/userinfo")
+    return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+  end
+
+  if debug then
+    ngx.log(ngx.ERR, "DEBUG: userinfo response "..res2..code2..status2..table.concat(result_table))
+  end
+
+  -- TODO handle non-200
+  json = cjson.decode( table.concat(result_table) )
+  if json["hd"]~=domain then
+    return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+  end
+
+  ngx.header["Set-Cookie"] = "AccessToken="..access_token..cookie_tail
+  ngx.header["Set-Cookie"] = "Name="..json["name"]..cookie_tail
+  ngx.header["Set-Cookie"] = "Email="..json["email"]..cookie_tail
+  ngx.header["Set-Cookie"] = "Picture="..json["picture"]..cookie_tail
+
+  -- Redirect
+  if debug then
+    ngx.log(ngx.ERR, "DEBUG: authorized "..json["email"]..", redirecting to "..uri_args["state"])
+  end
+  return ngx.redirect(uri_args["state"]) 
 end
