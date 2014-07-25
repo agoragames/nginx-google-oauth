@@ -19,6 +19,7 @@ local cb_scheme = ngx.var.ngo_callback_scheme or ngx.var.scheme
 local cb_server_name = ngx.var.ngo_callback_host or ngx.var.server_name
 local cb_uri = ngx.var.ngo_callback_uri or "/_oauth"
 local cb_url = cb_scheme.."://"..cb_server_name..cb_uri
+local signout_uri = ngx.var.ngo_signout_uri or "/_signout"
 local debug = ngx.var.ngo_debug
 local whitelist = ngx.var.ngo_whitelist
 local blacklist = ngx.var.ngo_blacklist
@@ -27,6 +28,11 @@ local secure_cookies = ngx.var.ngo_secure_cookies
 local uri_args = ngx.req.get_uri_args()
 
 -- See https://developers.google.com/accounts/docs/OAuth2WebServer 
+if ngx.var.uri == signout_uri then
+  ngx.header["Set-Cookie"] = "AccessToken=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  return ngx.redirect(ngx.var.scheme.."://"..ngx.var.server_name)
+end
+
 if not ngx.var.cookie_AccessToken then
   -- If no access token and this isn't the callback URI, redirect to oauth
   if ngx.var.uri ~= cb_uri then
