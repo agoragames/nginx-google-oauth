@@ -93,10 +93,12 @@ if not ngx.var.cookie_AccessToken then
     return ngx.exit(ngx.HTTP_UNAUTHORIZED)
   end
 
-  ngx.header["Set-Cookie"] = "AccessToken="..access_token..cookie_tail
-  ngx.header["Set-Cookie"] = "Name="..json["name"]..cookie_tail
-  ngx.header["Set-Cookie"] = "Email="..json["email"]..cookie_tail
-  ngx.header["Set-Cookie"] = "Picture="..json["picture"]..cookie_tail
+  ngx.header["Set-Cookie"] = {
+    "AccessToken="..access_token..cookie_tail,
+    "Name="..ngx.escape_uri(json["name"])..cookie_tail,
+    "Email="..ngx.escape_uri(json["email"])..cookie_tail,
+    "Picture="..ngx.escape_uri(json["picture"])..cookie_tail
+  }
 
   -- Redirect
   if debug then

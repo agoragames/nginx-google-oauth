@@ -82,3 +82,4 @@ while you're iterating.
 - Support auth token refresh and timeouts
 - Add whitelisting and blacklisting of users 
 - Continue support for Ubuntu but make imports work on other platforms as well
+- Add support for secure cookies 
