@@ -182,6 +182,8 @@ while you're iterating.
 - Support auth token refresh and timeouts
 - Continue support for Ubuntu but make imports work on other platforms as well
 - Replace cjson requirement with "standard" Lua json
+- 401 page that allows signing out and back in with a different account
+- whitelist and blacklist is checked on every request
 
 ## Copyright
 
