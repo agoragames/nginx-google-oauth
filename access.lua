@@ -14,12 +14,17 @@ pcall(require,"https")
 local https = require "ssl.https" -- /usr/share/lua/5.1/https.lua
 local ltn12  = require("ltn12")
  
+local uri = ngx.var.uri
+local uri_args = ngx.req.get_uri_args()
+local scheme = ngx.var.scheme
+local server_name = ngx.var.server_name
+
 -- setup some app-level vars
 local client_id = ngx.var.ngo_client_id
 local client_secret = ngx.var.ngo_client_secret
 local domain = ngx.var.ngo_domain
-local cb_scheme = ngx.var.ngo_callback_scheme or ngx.var.scheme
-local cb_server_name = ngx.var.ngo_callback_host or ngx.var.server_name
+local cb_scheme = ngx.var.ngo_callback_scheme or scheme
+local cb_server_name = ngx.var.ngo_callback_host or server_name
 local cb_uri = ngx.var.ngo_callback_uri or "/_oauth"
 local cb_url = cb_scheme.."://"..cb_server_name..cb_uri
 local signout_uri = ngx.var.ngo_signout_uri or "/_signout"
@@ -28,19 +33,18 @@ local whitelist = ngx.var.ngo_whitelist
 local blacklist = ngx.var.ngo_blacklist
 local secure_cookies = ngx.var.ngo_secure_cookies
 
-local uri_args = ngx.req.get_uri_args()
 
 -- See https://developers.google.com/accounts/docs/OAuth2WebServer 
-if ngx.var.uri == signout_uri then
+if uri == signout_uri then
   ngx.header["Set-Cookie"] = "AccessToken=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-  return ngx.redirect(ngx.var.scheme.."://"..ngx.var.server_name)
+  return ngx.redirect(scheme.."://"..server_name)
 end
 
 if not ngx.var.cookie_AccessToken then
   -- If no access token and this isn't the callback URI, redirect to oauth
-  if ngx.var.uri ~= cb_uri then
+  if uri ~= cb_uri then
     -- Redirect to the /oauth endpoint, request access to ALL scopes
-    return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..client_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(cb_url).."&state="..ngx.escape_uri(ngx.var.uri).."&login_hint="..ngx.escape_uri(domain))
+    return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..client_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(cb_url).."&state="..ngx.escape_uri(uri).."&login_hint="..ngx.escape_uri(domain))
   end
 
   -- Fetch teh authorization code from the parameters
