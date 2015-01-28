@@ -27,6 +27,7 @@ local cb_scheme = ngx.var.ngo_callback_scheme or scheme
 local cb_server_name = ngx.var.ngo_callback_host or server_name
 local cb_uri = ngx.var.ngo_callback_uri or "/_oauth"
 local cb_url = cb_scheme.."://"..cb_server_name..cb_uri
+local redir_url = cb_scheme.."://"..cb_server_name..uri
 local signout_uri = ngx.var.ngo_signout_uri or "/_signout"
 local debug = ngx.var.ngo_debug
 local whitelist = ngx.var.ngo_whitelist
@@ -37,14 +38,14 @@ local secure_cookies = ngx.var.ngo_secure_cookies
 -- See https://developers.google.com/accounts/docs/OAuth2WebServer 
 if uri == signout_uri then
   ngx.header["Set-Cookie"] = "AccessToken=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-  return ngx.redirect(scheme.."://"..server_name)
+  return ngx.redirect(cb_scheme.."://"..server_name)
 end
 
 if not ngx.var.cookie_AccessToken then
   -- If no access token and this isn't the callback URI, redirect to oauth
   if uri ~= cb_uri then
     -- Redirect to the /oauth endpoint, request access to ALL scopes
-    return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..client_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(cb_url).."&state="..ngx.escape_uri(uri).."&login_hint="..ngx.escape_uri(domain))
+    return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..client_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(cb_url).."&state="..ngx.escape_uri(redir_url).."&login_hint="..ngx.escape_uri(domain))
   end
 
   -- Fetch teh authorization code from the parameters
