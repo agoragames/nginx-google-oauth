@@ -9,10 +9,8 @@ end
 
 -- Ubuntu broke the install. Puts the source in /usr/share/lua/5.1/https.lua,
 -- but since the source defines itself as the module "ssl.https", after we
--- load the source, we need to grab the actual thing. Building from source
--- wasn't practical.
--- TODO: make this more generic but still work with Ubuntu
-require "https" -- 
+-- load the source, we need to grab the actual thing.
+pcall(require,"https")
 local https = require "ssl.https" -- /usr/share/lua/5.1/https.lua
 local ltn12  = require("ltn12")
  
