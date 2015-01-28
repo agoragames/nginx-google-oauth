@@ -110,7 +110,7 @@ if not ngx.var.cookie_AccessToken then
   local picture = json["picture"]
 
   -- If no whitelist or blacklist, match on domain
-  if not whitelist and not blacklist then
+  if not whitelist and not blacklist and domain then
     if not string.find(email, "@"..domain) then
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." not in "..domain)
