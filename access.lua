@@ -1,6 +1,11 @@
  
 -- import requirements
-local cjson = require "cjson"
+
+-- allow either ccjsonjson, or th-LuaJSON
+local has_cjson, jsonmod = pcall(require, "cjson")
+if not has_cjson then
+  jsonmod = require "json"
+end
 
 -- Ubuntu broke the install. Puts the source in /usr/share/lua/5.1/https.lua,
 -- but since the source defines itself as the module "ssl.https", after we
@@ -72,7 +77,7 @@ if not ngx.var.cookie_AccessToken then
   end
 
   -- use version 1 cookies so we don't have to encode. MSIE-old beware
-  local json  = cjson.decode( res )
+  local json  = jsonmod.decode( res )
   local access_token = json["access_token"]
   local cookie_tail = ";version=1;path=/;Max-Age="..json["expires_in"]
   if secure_cookies then
@@ -100,7 +105,7 @@ if not ngx.var.cookie_AccessToken then
     ngx.log(ngx.ERR, "DEBUG: userinfo response "..res2..code2..status2..table.concat(result_table))
   end
 
-  json = cjson.decode( table.concat(result_table) )
+  json = jsonmod.decode( table.concat(result_table) )
 
   local name = json["name"]
   local email = json["email"]
