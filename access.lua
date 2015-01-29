@@ -33,7 +33,13 @@ local debug = ngx.var.ngo_debug
 local whitelist = ngx.var.ngo_whitelist
 local blacklist = ngx.var.ngo_blacklist
 local secure_cookies = ngx.var.ngo_secure_cookies
+local token_secret = ngx.var.ngo_token_secret or "UNSET"
 
+-- Force the user to set a token secret
+if token_secret == "UNSET" then
+  ngx.log(ngx.ERR, "$ngo_token_secret must be set in Nginx config!")
+  return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+end
 
 -- See https://developers.google.com/accounts/docs/OAuth2WebServer 
 if uri == signout_uri then
@@ -41,7 +47,15 @@ if uri == signout_uri then
   return ngx.redirect(cb_scheme.."://"..server_name)
 end
 
-if not ngx.var.cookie_AccessToken then
+-- Enforce token security and expiration
+local oauth_expires = tonumber(ngx.var.cookie_OauthExpires) or 0
+local oauth_email = ngx.unescape_uri(ngx.var.cookie_OauthEmail or "")
+local oauth_access_token = ngx.unescape_uri(ngx.var.cookie_OauthAccessToken or "")
+local expected_token = ngx.encode_base64(ngx.hmac_sha1(token_secret, cb_server_name .. oauth_email .. oauth_expires))
+
+if oauth_access_token == expected_token and oauth_expires and oauth_expires > ngx.time() then
+  return
+else
   -- If no access token and this isn't the callback URI, redirect to oauth
   if uri ~= cb_uri then
     -- Redirect to the /oauth endpoint, request access to ALL scopes
@@ -82,6 +96,7 @@ if not ngx.var.cookie_AccessToken then
   -- use version 1 cookies so we don't have to encode. MSIE-old beware
   local json  = jsonmod.decode( res )
   local access_token = json["access_token"]
+  local expires = ngx.time() + json["expires_in"]
   local cookie_tail = ";version=1;path=/;Max-Age="..json["expires_in"]
   if secure_cookies then
     cookie_tail = cookie_tail..";secure"
@@ -113,6 +128,7 @@ if not ngx.var.cookie_AccessToken then
   local name = json["name"]
   local email = json["email"]
   local picture = json["picture"]
+  local token = ngx.encode_base64(ngx.hmac_sha1(token_secret, cb_server_name .. email .. expires))
 
   -- If no whitelist or blacklist, match on domain
   if not whitelist and not blacklist and domain then
@@ -143,10 +159,11 @@ if not ngx.var.cookie_AccessToken then
   end
 
   ngx.header["Set-Cookie"] = {
-    "AccessToken="..access_token..cookie_tail,
-    "Name="..ngx.escape_uri(name)..cookie_tail,
-    "Email="..ngx.escape_uri(email)..cookie_tail,
-    "Picture="..ngx.escape_uri(picture)..cookie_tail
+    "OauthAccessToken="..ngx.escape_uri(token)..cookie_tail,
+    "OauthExpires="..expires..cookie_tail,
+    "OauthName="..ngx.escape_uri(name)..cookie_tail,
+    "OauthEmail="..ngx.escape_uri(email)..cookie_tail,
+    "OauthPicture="..ngx.escape_uri(picture)..cookie_tail
   }
 
   -- Redirect

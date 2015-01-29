@@ -50,6 +50,7 @@ server {
 
   set $ngo_client_id "abc-def.apps.googleusercontent.com";
   set $ngo_client_secret "abcdefg-123-xyz";
+  set $ngo_token_secret "a very long randomish string";
   set $ngo_secure_cookies "true";
   access_by_lua_file "/etc/nginx/nginx-google-oauth/access.lua";
 }
@@ -61,6 +62,7 @@ variables are:
 
 - **$ngo_client_id** This is the client id key
 - **$ngo_client_secret** This is the client secret
+- **$ngo_token_secret** The key used to encrypt the session token stored in the user cookie.  Should be long & unguessable.
 - **$ngo_domain** The domain to use for validating users when not using white- or blacklists
 - **$ngo_whitelist** Optional list of authorized email addresses
 - **$ngo_blacklist** Optional list of unauthorized email addresses
