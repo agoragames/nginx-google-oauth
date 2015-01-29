@@ -141,7 +141,7 @@ else
   end
 
   if whitelist then
-    if not string.find(whitelist, email) then
+    if not string.find(" " .. whitelist .. " ", " " .. email .. " ") then
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." not in whitelist")
       end
@@ -150,7 +150,7 @@ else
   end
 
   if blacklist then
-    if string.find(blacklist, email) then
+    if string.find(" " .. blacklist .. " ", " " .. email .. " ") then
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." in blacklist")
       end
