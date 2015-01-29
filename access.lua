@@ -1,7 +1,7 @@
  
 -- import requirements
 
--- allow either ccjsonjson, or th-LuaJSON
+-- allow either cjson, or th-LuaJSON
 local has_cjson, jsonmod = pcall(require, "cjson")
 if not has_cjson then
   jsonmod = require "json"
@@ -34,6 +34,8 @@ local whitelist = ngx.var.ngo_whitelist
 local blacklist = ngx.var.ngo_blacklist
 local secure_cookies = ngx.var.ngo_secure_cookies
 local token_secret = ngx.var.ngo_token_secret or "UNSET"
+local set_user = ngx.var.ngo_user
+local email_as_user = ngx.var.ngo_email_as_user
 
 -- Force the user to set a token secret
 if token_secret == "UNSET" then
@@ -54,6 +56,15 @@ local oauth_access_token = ngx.unescape_uri(ngx.var.cookie_OauthAccessToken or "
 local expected_token = ngx.encode_base64(ngx.hmac_sha1(token_secret, cb_server_name .. oauth_email .. oauth_expires))
 
 if oauth_access_token == expected_token and oauth_expires and oauth_expires > ngx.time() then
+  -- Populate the nginx 'ngo_user' variable with our Oauth username, if requested
+  if set_user then
+    local oauth_user, oauth_domain = oauth_email:match("([^@]+)@(.+)")
+    if email_as_user then
+      ngx.var.ngo_user = email
+    else
+      ngx.var.ngo_user = oauth_user
+    end
+  end
   return
 else
   -- If no access token and this isn't the callback URI, redirect to oauth
@@ -130,9 +141,11 @@ else
   local picture = json["picture"]
   local token = ngx.encode_base64(ngx.hmac_sha1(token_secret, cb_server_name .. email .. expires))
 
+  local oauth_user, oauth_domain = email:match("([^@]+)@(.+)")
+
   -- If no whitelist or blacklist, match on domain
   if not whitelist and not blacklist and domain then
-    if not string.find(email, "@"..domain) then
+    if oauth_domain ~= domain then
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." not in "..domain)
       end
@@ -165,6 +178,15 @@ else
     "OauthEmail="..ngx.escape_uri(email)..cookie_tail,
     "OauthPicture="..ngx.escape_uri(picture)..cookie_tail
   }
+
+  -- Poplate our ngo_user variable
+  if set_user then
+    if email_as_user then
+      ngx.var.ngo_user = email
+    else
+      ngx.var.ngo_user = oauth_user
+    end
+  end
 
   -- Redirect
   if debug then

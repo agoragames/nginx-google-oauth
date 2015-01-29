@@ -72,6 +72,8 @@ variables are:
 - **$ngo_debug** If defined, will enable debug logging through nginx error logger
 - **$ngo_secure_cookies** If defined, will ensure that cookies can only be transfered over a secure connection
 - **$ngo_css** An optional stylesheet to replace the default stylesheet when using the body_filter
+- **$ngo_user** If set, will be populated with the OAuth username returned from Google (portion left of '@' in email)
+- **$ngo_email_as_user** If set and $ngo_user is defined, username returned will be full email address
 
 ## Configuring OAuth Access
 
@@ -120,6 +122,7 @@ server {
 
   set $ngo_client_id 'abc-def.apps.googleusercontent.com';
   set $ngo_client_secret 'abcdefg-123-xyz';
+  set $ngo_token_secret 'a very long randomish string';
   access_by_lua_file "/etc/nginx/nginx-google-oauth/access.lua";
 
   location / {
@@ -170,6 +173,36 @@ otherwise the stylesheet will be:
 The filter operates by performing a regular expression match on ``<body>``,
 and so should act as a no-op for non-HTML content types. It may be necessary
 to use the body filter only on a subset of routes depending on your application.
+
+## Username variable
+
+If you wish to pass the username returned from Google to an external FastCGI/UWSGI script, consider using the ``$ngo_user`` variable:
+
+```
+server {
+  server_name supersecret.net;
+  listen 443;
+
+  ssl on;
+  ssl_certificate /etc/nginx/certs/supersecret.net.pem;
+  ssl_certificate_key /etc/nginx/certs/supersecret.net.key;
+
+  set $ngo_client_id "abc-def.apps.googleusercontent.com";
+  set $ngo_client_secret "abcdefg-123-xyz";
+  set $ngo_token_secret "a very long randomish string";
+  set $ngo_secure_cookies "true";
+  access_by_lua_file "/etc/nginx/nginx-google-oauth/access.lua";
+
+  set $ngo_user "unknown@unknown.com";
+
+  include uwsgi_params;
+  uwsgi_param REMOTE_USER $ngo_user;
+  uwsgi_param AUTH_TYPE Basic;
+  uwsgi_pass 127.0.0.1:3031;
+}
+```
+
+If you wish the full email address returned from Google to be set as the username, set the ``$ngo_email_as_user`` variable to any non-empty value.
 
 ## Development
 
