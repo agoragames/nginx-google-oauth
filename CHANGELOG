@@ -1,9 +1,10 @@
-master
+1.1.0
 ======
 
-Fixed font color for body filter
+* Fixed font color for body filter
+* Security and usability enhancements from @eschwim
 
 1.0.0
 =====
 
-First offical release
+* First offical release

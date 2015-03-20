@@ -233,3 +233,5 @@ MIT
 
 This project wouldn't have gone beyond the idea stage without the excellent
 example provided by [SeatGeek](http://chairnerd.seatgeek.com/oauth-support-for-nginx-with-lua/).
+
+Thank you to @eschwim for some much-needed usability and security [fixes](https://github.com/agoragames/nginx-google-oauth/pull/4).
