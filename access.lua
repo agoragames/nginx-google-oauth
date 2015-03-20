@@ -45,7 +45,7 @@ end
 
 -- See https://developers.google.com/accounts/docs/OAuth2WebServer 
 if uri == signout_uri then
-  ngx.header["Set-Cookie"] = "AccessToken=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  ngx.header["Set-Cookie"] = "OauthAccessToken==deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
   return ngx.redirect(cb_scheme.."://"..server_name)
 end
 

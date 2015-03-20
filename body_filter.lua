@@ -1,11 +1,11 @@
 
 -- Will filter the output and put in a header implying login
-if ngx.var.cookie_AccessToken then
+if ngx.var.cookie_OauthAccessToken then
   local signout_uri = ngx.var.ngo_signout_uri or "/_signout"
 
-  local img = "<img src=\""..ngx.unescape_uri(ngx.var.cookie_Picture).."\" />"
-  local user = "<span class=\"ngo_user\">"..ngx.unescape_uri(ngx.var.cookie_Name).."</span>"
-  local email = "<span class=\"ngo_email\">"..ngx.unescape_uri(ngx.var.cookie_Email).."</span>"
+  local img = "<img src=\""..ngx.unescape_uri(ngx.var.cookie_OauthPicture).."\" />"
+  local user = "<span class=\"ngo_user\">"..ngx.unescape_uri(ngx.var.cookie_OauthName).."</span>"
+  local email = "<span class=\"ngo_email\">"..ngx.unescape_uri(ngx.var.cookie_OauthEmail).."</span>"
   local signout = "<a href=\""..signout_uri.."\">Signout</a>"
   local div = "<div class=\"ngo_auth\">"..img..user..email..signout.."</div>"
 
