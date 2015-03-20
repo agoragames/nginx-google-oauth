@@ -11,7 +11,7 @@ include_recipe "build-essential"
 # http://wiki.nginx.org/HttpLuaModule#Installation_on_Ubuntu_11.10
 # TODO: try using "lua-json" instead of lua-cjson
 # https://launchpad.net/ubuntu/+source/lua-json
-%w{libpcre3 libpcre3-dev libssl-dev liblwp-useragent-determined-perl libpam0g-dev lua5.1 liblua5.1-0 liblua5.1-0-dev cmake liblua5.1-sec-dev}.each do |devpkg|
+%w{libpcre3 libpcre3-dev libssl-dev liblwp-useragent-determined-perl libpam0g-dev lua5.1 liblua5.1-0 liblua5.1-0-dev cmake liblua5.1-sec-dev liblua5.1-json}.each do |devpkg|
   package devpkg
 end
 
@@ -36,11 +36,6 @@ remote_file "/tmp/nginx-lua-0.9.6.tar.gz" do
   action :create_if_missing
 end
 
-remote_file "/tmp/lua-cjson-2.1.0.tar.gz" do
-  source "http://www.kyne.com.au/~mark/software/download/lua-cjson-2.1.0.tar.gz"
-  action :create_if_missing
-end
-
 # compile nginx
 # -------------
 
@@ -51,10 +46,9 @@ bash "compile_nginx_source" do
     tar zxf nginx-#{nginx_version}.tar.gz
     tar zxf ngx_devel_kit-0.2.19.tar.gz
     tar zxf nginx-lua-0.9.6.tar.gz
-    tar zxf lua-cjson-2.1.0.tar.gz
 
     # Lua paths. Requires hack to get linking right.
-    ln -s /usr/lib/liblua5.1.so /usr/lib/liblua.so
+    ln -s `find /usr/lib -iname liblua5.1.so` /usr/lib/liblua.so
     export LUA_LIB=/usr/lib/
     export LUA_INC=/usr/include/lua5.1
 
@@ -65,13 +59,6 @@ bash "compile_nginx_source" do
       --add-module=/tmp/lua-nginx-module-0.9.6
     make
     make install
-
-    cd /tmp/lua-cjson-2.1.0
-    mkdir build
-    cd build
-    cmake ..
-    make install
-
   END
   creates node[:nginx][:src_binary]
 end

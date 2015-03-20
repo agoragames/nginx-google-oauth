@@ -7,7 +7,7 @@ Lua module to add Google OAuth to nginx.
 
 You can copy `access.lua` to your nginx configurations, or clone the
 repository. Your installation of nginx must already be built with Lua
-support, and you will need the ``cjson`` and ``luasec`` modules as well.
+support, and you will need the ``json`` and ``luasec`` modules as well.
 
 ### Ubuntu
 
@@ -18,6 +18,7 @@ lua5.1
 liblua5.1-0
 liblua5.1-0-dev
 liblua5.1-sec-dev
+liblua5.1-json
 ```
 
 You will also need to download and build the following and link them
@@ -26,7 +27,6 @@ with nginx
 ```
 ngx_devel_kit
 lua-nginx-module
-lua-cjson-2.1.0
 ```
 
 See ``/chef/source-lua.rb`` for a Chef recipe to install nginx and Lua
@@ -207,6 +207,8 @@ If you wish the full email address returned from Google to be set as the usernam
 
 ## Development
 
+See `test/README.md`.
+
 Bug reports and pull requests are [welcome](https://github.com/agoragames/nginx-google-oauth).
 
 It can be useful to turn off [lua_code_cache](http://wiki.nginx.org/HttpLuaModule#lua_code_cache)
@@ -217,7 +219,6 @@ while you're iterating.
 - Add support for non-blocking sockets in obtaining an auth token
 - Support auth token refresh and timeouts
 - Continue support for Ubuntu but make imports work on other platforms as well
-- Replace cjson requirement with "standard" Lua json
 - 401 page that allows signing out and back in with a different account
 - whitelist and blacklist is checked on every request
 
