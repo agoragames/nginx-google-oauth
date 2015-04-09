@@ -55,7 +55,14 @@ local oauth_email = ngx.unescape_uri(ngx.var.cookie_OauthEmail or "")
 local oauth_access_token = ngx.unescape_uri(ngx.var.cookie_OauthAccessToken or "")
 local expected_token = ngx.encode_base64(ngx.hmac_sha1(token_secret, cb_server_name .. oauth_email .. oauth_expires))
 
-if oauth_access_token == expected_token and oauth_expires and oauth_expires > ngx.time() then
+-- Prevent timing attacks
+-- https://github.com/agoragames/nginx-google-oauth/issues/5
+local token_match = true
+for i=0,#expected_token do
+  token_match = token_match and (expected_token:sub(i,i)==oauth_access_token:sub(i,i))
+end
+
+if token_match and oauth_expires and oauth_expires > ngx.time() then
   -- Populate the nginx 'ngo_user' variable with our Oauth username, if requested
   if set_user then
     local oauth_user, oauth_domain = oauth_email:match("([^@]+)@(.+)")
