@@ -65,6 +65,39 @@ if oauth_access_token == expected_token and oauth_expires and oauth_expires > ng
       ngx.var.ngo_user = oauth_user
     end
   end
+  -- Check whitelist blacklist and domain on each request
+  if oauth_email then
+    local email = oauth_email
+    local oauth_user, oauth_domain = email:match("([^@]+)@(.+)")
+    -- If no whitelist or blacklist, match on domain
+    if not whitelist and not blacklist and domain then
+      if oauth_domain ~= domain then
+        if debug then
+          ngx.log(ngx.ERR, "DEBUG: "..email.." not in "..domain)
+        end
+        return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+      end
+    end
+
+    if whitelist then
+      if not string.find(" " .. whitelist .. " ", " " .. email .. " ") then
+        if debug then
+          ngx.log(ngx.ERR, "DEBUG: "..email.." not in whitelist")
+        end
+        return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+      end
+    end
+
+    if blacklist then
+      if string.find(" " .. blacklist .. " ", " " .. email .. " ") then
+        if debug then
+          ngx.log(ngx.ERR, "DEBUG: "..email.." in blacklist")
+        end
+        return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+      end
+    end
+  end
+
   return
 else
   -- If no access token and this isn't the callback URI, redirect to oauth
@@ -142,34 +175,6 @@ else
   local token = ngx.encode_base64(ngx.hmac_sha1(token_secret, cb_server_name .. email .. expires))
 
   local oauth_user, oauth_domain = email:match("([^@]+)@(.+)")
-
-  -- If no whitelist or blacklist, match on domain
-  if not whitelist and not blacklist and domain then
-    if oauth_domain ~= domain then
-      if debug then
-        ngx.log(ngx.ERR, "DEBUG: "..email.." not in "..domain)
-      end
-      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
-    end
-  end
-
-  if whitelist then
-    if not string.find(" " .. whitelist .. " ", " " .. email .. " ") then
-      if debug then
-        ngx.log(ngx.ERR, "DEBUG: "..email.." not in whitelist")
-      end
-      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
-    end
-  end
-
-  if blacklist then
-    if string.find(" " .. blacklist .. " ", " " .. email .. " ") then
-      if debug then
-        ngx.log(ngx.ERR, "DEBUG: "..email.." in blacklist")
-      end
-      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
-    end
-  end
 
   ngx.header["Set-Cookie"] = {
     "OauthAccessToken="..ngx.escape_uri(token)..cookie_tail,
