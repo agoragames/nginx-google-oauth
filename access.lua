@@ -73,41 +73,50 @@ else
     return ngx.redirect("https://accounts.google.com/o/oauth2/auth?client_id="..client_id.."&scope=email&response_type=code&redirect_uri="..ngx.escape_uri(cb_url).."&state="..ngx.escape_uri(redir_url).."&login_hint="..ngx.escape_uri(domain))
   end
 
-  -- Fetch teh authorization code from the parameters
+  --check if we are receiving an auth code or if we are receiving an access token
   local auth_code = uri_args["code"]
-  local auth_error = uri_args["error"]
-
-  if auth_error then
-    ngx.log(ngx.ERR, "received "..auth_error.." from https://accounts.google.com/o/oauth2/auth")
+  local access_token = uri_args["token"]
+  local expires_in = uri_args["expires_in"]
+  if (not access_token and not auth_code) then
+    -- we need either access token or auth code
     return ngx.exit(ngx.HTTP_UNAUTHORIZED)
   end
-    
-  if debug then
-    ngx.log(ngx.ERR, "DEBUG: fetching token for auth code "..auth_code)
+  if auth_code then
+  -- Fetch teh authorization code from the parameters
+    local auth_error = uri_args["error"]
+
+    if auth_error then
+      ngx.log(ngx.ERR, "received "..auth_error.." from https://accounts.google.com/o/oauth2/auth")
+      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+    end
+      
+    if debug then
+      ngx.log(ngx.ERR, "DEBUG: fetching token for auth code "..auth_code)
+    end
+
+    -- TODO: Switch to NBIO sockets
+    -- If I get around to working luasec, this says how to pass a function which
+    -- can generate a socket, needed for NBIO using nginx cosocket
+    -- http://lua-users.org/lists/lua-l/2009-02/msg00251.html
+    local res, code, headers, status = https.request(
+      "https://accounts.google.com/o/oauth2/token",
+      "code="..ngx.escape_uri(auth_code).."&client_id="..client_id.."&client_secret="..client_secret.."&redirect_uri="..ngx.escape_uri(cb_url).."&grant_type=authorization_code"
+    )
+
+    if debug then
+      ngx.log(ngx.ERR, "DEBUG: token response "..res..code..status)
+    end
+
+    if code~=200 then
+      ngx.log(ngx.ERR, "received "..code.." from https://accounts.google.com/o/oauth2/token")
+      return ngx.exit(ngx.HTTP_UNAUTHORIZED)
+    end
+
+    -- use version 1 cookies so we don't have to encode. MSIE-old beware
+    local json  = jsonmod.decode( res )
+    local access_token = json["access_token"]
+    local expires = ngx.time() + json["expires_in"]
   end
-
-  -- TODO: Switch to NBIO sockets
-  -- If I get around to working luasec, this says how to pass a function which
-  -- can generate a socket, needed for NBIO using nginx cosocket
-  -- http://lua-users.org/lists/lua-l/2009-02/msg00251.html
-  local res, code, headers, status = https.request(
-    "https://accounts.google.com/o/oauth2/token",
-    "code="..ngx.escape_uri(auth_code).."&client_id="..client_id.."&client_secret="..client_secret.."&redirect_uri="..ngx.escape_uri(cb_url).."&grant_type=authorization_code"
-  )
-
-  if debug then
-    ngx.log(ngx.ERR, "DEBUG: token response "..res..code..status)
-  end
-
-  if code~=200 then
-    ngx.log(ngx.ERR, "received "..code.." from https://accounts.google.com/o/oauth2/token")
-    return ngx.exit(ngx.HTTP_UNAUTHORIZED)
-  end
-
-  -- use version 1 cookies so we don't have to encode. MSIE-old beware
-  local json  = jsonmod.decode( res )
-  local access_token = json["access_token"]
-  local expires = ngx.time() + json["expires_in"]
   local cookie_tail = ";version=1;path=/;Max-Age="..json["expires_in"]
   if secure_cookies then
     cookie_tail = cookie_tail..";secure"
