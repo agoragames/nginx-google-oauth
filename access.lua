@@ -149,6 +149,7 @@ else
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." not in "..domain)
       end
+      https.request("https://accounts.google.com/o/oauth2/revoke","token=" .. access_token)
       return ngx.exit(ngx.HTTP_UNAUTHORIZED)
     end
   end
@@ -158,6 +159,7 @@ else
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." not in whitelist")
       end
+      https.request("https://accounts.google.com/o/oauth2/revoke","token=" .. access_token)
       return ngx.exit(ngx.HTTP_UNAUTHORIZED)
     end
   end
@@ -167,6 +169,7 @@ else
       if debug then
         ngx.log(ngx.ERR, "DEBUG: "..email.." in blacklist")
       end
+      https.request("https://accounts.google.com/o/oauth2/revoke","token=" .. access_token)
       return ngx.exit(ngx.HTTP_UNAUTHORIZED)
     end
   end
